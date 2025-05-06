@@ -2,12 +2,16 @@ const GLib = imports.gi.GLib;
 const Gio = imports.gi.Gio;
 
 import { EXTENSIONS_DIR_USER, SAVE_DIR } from "./globals.js";
-import { disableAllExtensions, downloadExtension_sync, enableExtensions, getGnomeShellVersionMajor, getInstalledExtensions, gnomeExtensionsInstall, switchExtensions } from "./helpers.js";
+import {
+    disableAllExtensions,
+    downloadExtension_sync,
+    enableExtensions,
+    getGnomeShellVersionMajor,
+    getInstalledExtensions,
+    gnomeExtensionsInstall
+} from "./helpers.js";
 
-/**
- *  @param {ParsedArgv} argv
- * 
-     */
+/** @param {ParsedArgv} argv */
 export function cmdLoad({ cmd, args, flags }) {
 
     // Load the save file

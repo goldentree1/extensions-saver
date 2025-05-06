@@ -1,6 +1,6 @@
 const GLib = imports.gi.GLib;
 const Gio = imports.gi.Gio;
-import { SAVE_DIR, EXTENSIONS_DIR_SYS, EXTENSIONS_DIR_USER } from "./globals.js";
+import { SAVE_DIR, EXTENSIONS_DIR_USER } from "./globals.js";
 import {
     getDconfDump,
     getExtensionMetadata,

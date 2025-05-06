@@ -4,7 +4,7 @@
     "typescript": "^5.8.3"
   },
   "scripts": {
-    "build": "esbuild main.js --bundle --outfile=extension-saver --format=iife --target=es2017 && chmod +x extension-saver",
+    "build": "esbuild src/main.js --bundle --outfile=extension-saver --format=iife --target=es2017 && chmod +x extension-saver",
     "run": "./extension-saver"
   }
 }

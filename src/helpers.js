@@ -73,12 +73,6 @@ export function getExtensionMetadata(dir, uuid) {
     }
 }
 
-/** @param {boolean} onOrOff */
-export function switchExtensions(onOrOff){
-    const settings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
-    settings.set_strv('disable-user-extensions', onOrOff ? "true":"false");
-}
-
 export function disableAllExtensions() {
     const settings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
     settings.set_strv('enabled-extensions', []);

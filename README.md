@@ -1,4 +1,13 @@
-# Extension save Manager
+# Extensions Saver
+Load/save an entire set of GNOME extensions with a single command.
+
+## Example Usage
+```bash
+    extensions-saver save original
+    # Make some crazy changes to your extensions! (add, change preferences, etc.)
+    extension-saver save my-crazy-desktop
+    extension-saver load original # Revert back to your original desktop
+```
 
 ## Commands
 
@@ -24,12 +33,6 @@
   Show version.
 
 
-## Example Usage
-See examples below, or scroll to next section for detailed documentation.
-
-```bash
-
-```
 
 
 ## Problems

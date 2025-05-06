@@ -17,7 +17,8 @@ export function cmdInfo({ cmd, args, flags }) {
     }
 
     const file = Gio.File.new_for_path(filePath);
-    let saveData;
+    /** @type {SaveFile|null} */
+    let saveData = null;
     try {
         const [, contents] = file.load_contents(null);
         /** @ts-ignore */
@@ -26,6 +27,11 @@ export function cmdInfo({ cmd, args, flags }) {
     } catch (e) {
         printerr(`Failed to load save "${saveName}": ${e instanceof Error ? e.message : e}`);
         imports.system.exit(1);
+    }
+    if (!saveData) {
+        printerr(`Failed to load save "${saveName}"`);
+        imports.system.exit(1);
+        return;
     }
 
     print(`Name: ${saveName}`);
@@ -44,5 +50,5 @@ export function cmdInfo({ cmd, args, flags }) {
             });
         }
     }
-    print(`Total extensions: ${saveData.extensions.length + saveData.sysExtensions.length}`);
+    print(`Total extensions: ${saveData.extensions.length}`);
 }
