@@ -1,4 +1,4 @@
-const Gio = imports.gi.Gio;
+import { Gio } from "./gjs.js";
 import { SAVE_DIR } from "./globals";
 
 export function cmdList() {

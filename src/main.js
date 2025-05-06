@@ -1,6 +1,6 @@
 #!/usr/bin/gjs
 
-const GLib = imports.gi.GLib;
+import { GLib } from "./gjs.js";
 import { SAVE_DIR, VERSION } from "./globals.js";
 import { cmdList } from "./cmd-list.js";
 import { cmdRemove } from "./cmd-remove.js";
@@ -8,35 +8,33 @@ import { cmdSave } from "./cmd-save.js";
 import { cmdInfo } from "./cmd-info.js";
 import { cmdLoad } from "./cmd-load.js";
 
-(() => {
-    // create the save directory if it doesnt exist
-    GLib.mkdir_with_parents(SAVE_DIR, 0o755);
+// create the save directory if it doesnt exist
+GLib.mkdir_with_parents(SAVE_DIR, 0o755);
 
-    // parse argv
-    const argv = parseArgv(ARGV);
-    const { cmd, args, flags } = argv;
+// parse argv
+const argv = parseArgv(ARGV);
+const { cmd, args, flags } = argv;
 
-    // run program!!
-    if (cmd == "version" ||
-        ((flags.includes("v") || flags.includes("version")) && !cmd && args.length == 0)) {
-        print(`extension-saver ${VERSION}`);
-    } else if (cmd == "help" || (!cmd && (flags.includes("h") || flags.includes("help")))) {
-        printHelp();
-    } else if (cmd == "list") {
-        cmdList();
-    } else if (cmd == "info") {
-        cmdInfo(argv);
-    } else if (cmd == "save") {
-        cmdSave(argv);
-    } else if (cmd == "remove") {
-        cmdRemove(argv);
-    } else if (cmd == "load") {
-        cmdLoad(argv);
-    } else {
-        print(`Unknown command: ${cmd}`);
-        imports.system.exit(1);
-    }
-})();
+// run program!!
+if (cmd == "version" ||
+    ((flags.includes("v") || flags.includes("version")) && !cmd && args.length == 0)) {
+    print(`extension-saver ${VERSION}`);
+} else if (cmd == "help" || (!cmd && (flags.includes("h") || flags.includes("help")))) {
+    printHelp();
+} else if (cmd == "list") {
+    cmdList();
+} else if (cmd == "info") {
+    cmdInfo(argv);
+} else if (cmd == "save") {
+    cmdSave(argv);
+} else if (cmd == "remove") {
+    cmdRemove(argv);
+} else if (cmd == "load") {
+    cmdLoad(argv);
+} else {
+    print(`Unknown command: ${cmd}`);
+    imports.system.exit(1);
+}
 
 function printHelp() {
     print("Usage: extension-saver <command> <args...>");

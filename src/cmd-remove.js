@@ -1,5 +1,4 @@
-const Gio = imports.gi.Gio;
-const GLib = imports.gi.GLib;
+import { GLib, Gio } from "./gjs.js";
 import { SAVE_DIR } from "./globals";
 
 /** @param {ParsedArgv} argv */

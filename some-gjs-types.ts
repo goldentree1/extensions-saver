@@ -1,6 +1,6 @@
 // gnome.d.ts
 
-// Augment the global scope in the context of GJS only
+// GJS globals
 declare global {
     var Me: any;
     var imports: any;  // GJS-specific global object

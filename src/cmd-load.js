@@ -1,6 +1,4 @@
-const GLib = imports.gi.GLib;
-const Gio = imports.gi.Gio;
-
+import { GLib, Gio } from "./gjs.js";
 import { EXTENSIONS_DIR_USER, SAVE_DIR } from "./globals.js";
 import {
     disableAllExtensions,

@@ -1,4 +1,4 @@
-const GLib = imports.gi.GLib;
+import { GLib } from "./gjs";
 
 export const VERSION = "0.1.0";
 export const SAVE_DIR = GLib.build_filenamev([GLib.get_home_dir(), '.extension-saver']);

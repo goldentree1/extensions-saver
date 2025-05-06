@@ -1,11 +1,10 @@
-const GLib = imports.gi.GLib;
-const Gio = imports.gi.Gio;
+import { GLib, Gio } from "./gjs.js";
 
 /** @param {string} schema */
 export function getDconfDump(schema) {
     const [ok, out] = GLib.spawn_command_line_sync(`dconf dump "${schema}"`);
     if (!ok) {
-        print(`Failed to dump dconf for ${schema}`);
+        printerr(`Failed to dump dconf for ${schema}`);
         return null;
     }
     // @ts-ignore
@@ -133,7 +132,7 @@ export function getGnomeShellVersionMajor() {
         return parts.length >= 2 ? `${parts[0]}.${parts[1]}` : parts[0];
 
     } catch (e) {
-        print(`Unable to get GNOME Shell version: ${e instanceof Error ? e.message : e}`);
+        printerr(`Unable to get GNOME Shell version: ${e instanceof Error ? e.message : e}`);
         return null;
     }
 }
@@ -153,7 +152,7 @@ export function downloadExtension_sync(uuid, shellVersion, downloadDir) {
         );
 
         if (!ok || !GLib.spawn_check_exit_status(status)) {
-            print(`Failed to fetch extension info for ${uuid}`);
+            printerr(`Failed to fetch extension info for ${uuid}`);
             return null;
         }
 
@@ -162,7 +161,7 @@ export function downloadExtension_sync(uuid, shellVersion, downloadDir) {
         extensionInfoJson = decoder.decode(out);
     } catch (e) {
         /** @ts-ignore */
-        print(`Error fetching extension info: ${e.message}`);
+        printerr(`Error fetching extension info: ${e.message}`);
         return null;
     }
 
@@ -171,13 +170,13 @@ export function downloadExtension_sync(uuid, shellVersion, downloadDir) {
         extensionInfo = JSON.parse(extensionInfoJson);
     } catch (e) {
         /** @ts-ignore */
-        print(`Failed to parse extension info JSON: ${e.message}`);
+        printerr(`Failed to parse extension info JSON: ${e.message}`);
         return null;
     }
 
     const versionEntry = extensionInfo.shell_version_map?.[majorShellVersion];
     if (!versionEntry?.version) {
-        print(`No compatible version found for GNOME Shell ${shellVersion}`);
+        printerr(`No compatible version found for GNOME Shell ${shellVersion}`);
         return null;
     }
 
@@ -193,12 +192,12 @@ export function downloadExtension_sync(uuid, shellVersion, downloadDir) {
         );
 
         if (!ok || !GLib.spawn_check_exit_status(status)) {
-            print(`Failed to download extension zip for ${uuid}`);
+            printerr(`Failed to download extension zip for ${uuid}`);
             return null;
         }
     } catch (e) {
         /** @ts-ignore */
-        print(`Error downloading extension zip: ${e.message}`);
+        printerr(`Error downloading extension zip: ${e.message}`);
         return null;
     }
 
@@ -219,25 +218,3 @@ export function gnomeExtensionsInstall(absoluteFilepath) {
         return null;
     }
 }
-
-
-// /**
-//  * 
-//  * @param {"GET"|"POST"} method 
-//  * @param {string} url 
-//  */
-// export function makeHttpRequestSync(method, url) {
-//     let session = new Soup.SessionSync();
-//     let message = Soup.Message.new(method, url);
-
-//     session.send_message(message);
-
-//     if (message.status_code === Soup.Status.OK) {
-//         print("Success:");
-//         print(message.response_body.data);
-//     } else {
-//         print("Failed with status: " + message.status_code);
-//     }
-// }
-
-// // use curl like curl -L https://extensions.gnome.org/api/v1/extensions/dash-to-panel@jderose9.github.com/versions/67/?format=zip -v --output DOWNLOADED.zip
