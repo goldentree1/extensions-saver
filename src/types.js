@@ -3,13 +3,13 @@
  * These will store all extensions used and the preferences set for them.
  * 
  * @typedef SaveFileGnomeExtensionData
- * @property {string} version Version of the extension
+ * @property {string} version Version of the extension (e.g., "97")
  * @property {string} uuid Extension UUID (e.g., "blur-my-shell@aunetx")
  * @property {string} dconfPath Dconf schema path (e.g., "/org/gnome/shell/extensions/blur-my-shell/")
  * @property {string} prefs Dconf dump of the extension's preferences
  * 
  * @typedef SaveFile
- * @property {string|null} gnomeShellVersion GNOME Shell version the save was created on
+ * @property {string} gnomeShellVersion GNOME Shell version the save was created on
  * @property {SaveFileGnomeExtensionData[]} extensions
  * 
  * Type def for parsed CLI arguments
