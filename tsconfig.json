@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+      "allowJs": true,
+      "checkJs": true,
+      "strict": true,
+      "noImplicitAny": true,
+      "strictNullChecks": true,
+      "outDir": "./dist",  // Specify output directory for compiled files
+      "lib": ["esnext"],   // Only load the "esnext" library, exclude DOM
+      "types": []          // Prevent TypeScript from including global types like "dom"
+    },
+    "include": [
+      "**/*.js",
+      "some-gjs-types.ts"
+    ]
+  }
+  
