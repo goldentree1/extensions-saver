@@ -13,7 +13,7 @@ Load/save an entire set of GNOME extensions and their preferences with a single 
 The script may not always load all of the saved preferences because extension authors may choose to put preferences in unconventional places which we have not accounted for. For example, the panel position (e.g., 'top', 'bottom') for Dash To Panel is not altered and must be manually changed in extension preferences.
 
 ## Installation
-Download the [extension-saver](./extension-saver) script and save it in a user bin directory like ~/.local/bin
+Download the [extension-saver](./extension-saver) script, make it executable, and save it in a user bin directory like ~/.local/bin
 
 ## Commands
 
