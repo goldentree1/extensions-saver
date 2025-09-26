@@ -67,8 +67,11 @@ export function cmdLoad({ cmd, args, flags }) {
     }
 
     // Disable all extensions
-    print("Disabling extensions")
+    print("Disabling current extensions")
     setEnabledExtensions([]);
+
+    // Enable first
+    setEnabledExtensions(saveData.extensions.map(({ uuid }) => uuid));
 
     // Load preferences via shell script with dconf
     print("Updating preferences")
@@ -76,7 +79,7 @@ export function cmdLoad({ cmd, args, flags }) {
         saveData.extensions
             .filter(({ dconfPath }) => Boolean(dconfPath))
             .map(({ uuid, dconfPath }) => (
-                `cat ${GLib.shell_quote(filePath)} | jq -r ${GLib.shell_quote(`.extensions[] | select(.uuid == "${uuid}").prefs`)} | dconf load ${GLib.shell_quote(dconfPath)}`))
+                `cat ${GLib.shell_quote(filePath)} | jq -r ${GLib.shell_quote(`.extensions[] | select(.uuid == "${uuid}").prefs`)} | dconf load -f ${GLib.shell_quote(dconfPath)}`))
             .join("\n")
     );
     const [ok] = GLib.spawn_command_line_sync(dconfLoadScript);
@@ -85,6 +88,8 @@ export function cmdLoad({ cmd, args, flags }) {
     }
 
     print("Enabling extensions");
+
+    // Enable again (potentially force reloads)
     setEnabledExtensions(saveData.extensions.map(({ uuid }) => uuid));
 
     // YAY ;-)

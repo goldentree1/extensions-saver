@@ -1,0 +1,418 @@
+#!/usr/bin/gjs
+"use strict";
+(() => {
+  // src/gjs.js
+  var GLib = imports.gi.GLib;
+  var Gio = imports.gi.Gio;
+
+  // src/globals.js
+  var VERSION = "0.1.0";
+  var SAVE_DIR = GLib.build_filenamev([GLib.get_home_dir(), ".extension-saver"]);
+  var EXTENSIONS_DIR_USER = GLib.build_filenamev([GLib.get_home_dir(), ".local/share/gnome-shell/extensions"]);
+
+  // src/cmd-list.js
+  function cmdList() {
+    const enumerator = Gio.File.new_for_path(SAVE_DIR).enumerate_children("standard::name", Gio.FileQueryInfoFlags.NONE, null);
+    let file;
+    while ((file = enumerator.next_file(null)) !== null) {
+      const name = file.get_name();
+      if (name.endsWith(".json")) {
+        print(name.substring(0, name.length - 5));
+      }
+    }
+  }
+
+  // src/cmd-remove.js
+  function cmdRemove(argv2) {
+    const [saveName] = argv2.args;
+    if (!saveName) {
+      print("No save name specified");
+      imports.system.exit(1);
+    }
+    const filePath = GLib.build_filenamev([SAVE_DIR, `${saveName}.json`]);
+    if (!GLib.file_test(filePath, GLib.FileTest.EXISTS)) {
+      print(`"${saveName}" does not exist`);
+      imports.system.exit(1);
+    }
+    const file = Gio.File.new_for_path(filePath);
+    file.delete(null);
+    print(`Removed save "${saveName}"`);
+    imports.system.exit(0);
+  }
+
+  // src/helpers.js
+  function getGnomeShellVersionMajor() {
+    try {
+      const [ok, out] = GLib.spawn_command_line_sync("gnome-shell --version");
+      if (!ok) return null;
+      const versionStr = imports.byteArray.toString(out).replace("GNOME Shell", "").trim();
+      const parts = versionStr.split(".");
+      const firstPart = Number(parts[0]);
+      if (firstPart >= 40) {
+        return String(firstPart);
+      }
+      return parts.length >= 2 ? `${parts[0]}.${parts[1]}` : parts[0];
+    } catch (e) {
+      printerr(`Unable to get GNOME Shell version: ${e instanceof Error ? e.message : e}`);
+      return null;
+    }
+  }
+  function getEnabledExtensions() {
+    const shellSettings = new Gio.Settings({ schema_id: "org.gnome.shell" });
+    const enabledExtensions = shellSettings.get_strv("enabled-extensions");
+    return enabledExtensions;
+  }
+  function setEnabledExtensions(uuids) {
+    const settings = new Gio.Settings({ schema_id: "org.gnome.shell" });
+    settings.set_strv("enabled-extensions", uuids);
+  }
+  function getInstalledExtensions(dir) {
+    if (!GLib.file_test(dir, GLib.FileTest.IS_DIR)) {
+      return [];
+    }
+    const file = Gio.File.new_for_path(dir);
+    const enumerator = file.enumerate_children("standard::name", Gio.FileQueryInfoFlags.NONE, null);
+    let extensions = [];
+    let info;
+    while ((info = enumerator.next_file(null)) !== null) {
+      if (info.get_file_type() === Gio.FileType.DIRECTORY) {
+        extensions.push(info.get_name());
+      }
+    }
+    return extensions;
+  }
+
+  // src/cmd-save.js
+  function cmdSave({ cmd: cmd2, args: args2, flags: flags2 }) {
+    const [saveName] = args2;
+    if (!saveName) {
+      printerr("No save name specified");
+      imports.system.exit(1);
+    }
+    const outPath = GLib.build_filenamev([SAVE_DIR, `${saveName}.json`]);
+    if (!(flags2.includes("o") || flags2.includes("overwrite")) && GLib.file_test(outPath, GLib.FileTest.EXISTS)) {
+      printerr(`"${saveName}" already exists`);
+      imports.system.exit(1);
+    }
+    const shellVersion = getGnomeShellVersionMajor();
+    if (!shellVersion) {
+      printerr(`GNOME Shell version could not be determined, unable to save`);
+      return imports.system.exit(1);
+    }
+    const installed = getInstalledExtensions(EXTENSIONS_DIR_USER);
+    const extensions = getEnabledExtensions().filter((uuid) => installed.includes(uuid));
+    const saveData = {
+      gnomeShellVersion: shellVersion,
+      extensions: extensions.map((uuid) => {
+        const metadata = getExtensionMetadata(EXTENSIONS_DIR_USER, uuid);
+        const dconfPath = getExtensionDconfPath(EXTENSIONS_DIR_USER, uuid);
+        const prefs = getDconfDump(dconfPath);
+        const data = {
+          uuid,
+          version: metadata == null ? void 0 : metadata.version,
+          dconfPath,
+          prefs
+        };
+        return data;
+      })
+    };
+    const file = Gio.File.new_for_path(outPath);
+    file.replace_contents(
+      JSON.stringify(saveData, null, 4),
+      null,
+      false,
+      Gio.FileCreateFlags.REPLACE_DESTINATION,
+      null
+    );
+    print(`Saved ${extensions.length} extensions to "${saveName}"`);
+    imports.system.exit(0);
+  }
+  function getExtensionMetadata(dir, uuid) {
+    const metadataPath = GLib.build_filenamev([dir, uuid, "metadata.json"]);
+    const metadataFile = Gio.File.new_for_path(metadataPath);
+    try {
+      const [, contents] = metadataFile.load_contents(null);
+      const decoder = new TextDecoder("utf-8");
+      const res = JSON.parse(decoder.decode(contents));
+      return res;
+    } catch (e) {
+      printerr(`Broken extension? Failed to load metadata.json from path "${dir}/${uuid}": ${e instanceof Error ? e.message : e}`);
+      return null;
+    }
+  }
+  function getExtensionDconfPath(dir, uuid) {
+    const schemaDir = GLib.build_filenamev([dir, uuid, "schemas"]);
+    const schemaFiles = GLib.file_test(schemaDir, GLib.FileTest.IS_DIR);
+    if (!schemaFiles) {
+      printerr(`No 'schemas' directory was found for ${uuid}`);
+      return null;
+    }
+    const dirFile = Gio.File.new_for_path(schemaDir);
+    const enumerator = dirFile.enumerate_children("standard::name", Gio.FileQueryInfoFlags.NONE, null);
+    let schemaFile = null;
+    let info;
+    while ((info = enumerator.next_file(null)) !== null) {
+      const name = info.get_name();
+      if (name.endsWith(".gschema.xml")) {
+        schemaFile = GLib.build_filenamev([schemaDir, name]);
+        break;
+      }
+    }
+    if (!schemaFile) {
+      printerr(`No gschema.xml file was found for ${uuid}`);
+      return null;
+    }
+    const [, contents] = Gio.File.new_for_path(schemaFile).load_contents(null);
+    const xmlContent = imports.byteArray.toString(contents);
+    const pathMatch = xmlContent.match(/<schema[^>]*path="([^"]*)"/);
+    if (pathMatch && pathMatch[1]) {
+      return pathMatch[1];
+    } else {
+      printerr(`Schema file was found, but dconf path attribute was missing for ${uuid}`);
+      return null;
+    }
+  }
+  function getDconfDump(schema) {
+    const [ok, out] = GLib.spawn_command_line_sync(`dconf dump "${schema}"`);
+    if (!ok) {
+      printerr(`Failed to dump dconf for ${schema}`);
+      return null;
+    }
+    const decoder = new TextDecoder("utf-8");
+    return decoder.decode(out);
+  }
+
+  // src/cmd-info.js
+  function cmdInfo({ cmd: cmd2, args: args2, flags: flags2 }) {
+    const [saveName] = args2;
+    if (!saveName) {
+      printerr("No save name specified");
+      imports.system.exit(1);
+    }
+    const filePath = GLib.build_filenamev([SAVE_DIR, `${saveName}.json`]);
+    if (!GLib.file_test(filePath, GLib.FileTest.EXISTS)) {
+      printerr(`Save "${saveName}" does not exist`);
+      imports.system.exit(1);
+    }
+    const file = Gio.File.new_for_path(filePath);
+    let saveData = null;
+    try {
+      const [, contents] = file.load_contents(null);
+      const decoder = new TextDecoder("utf-8");
+      saveData = JSON.parse(decoder.decode(contents));
+    } catch (e) {
+      printerr(`Failed to load save "${saveName}": ${e instanceof Error ? e.message : e}`);
+      imports.system.exit(1);
+    }
+    if (!saveData) {
+      printerr(`Failed to load save "${saveName}"`);
+      imports.system.exit(1);
+      return;
+    }
+    print(`Name: ${saveName}`);
+    print(`GNOME Shell version: ${saveData.gnomeShellVersion}`);
+    print(`Extensions:`);
+    for (const extension of saveData.extensions) {
+      print(`  - ${extension.uuid} (v${extension.version})`);
+      if (flags2.includes("v") || flags2.includes("verbose")) {
+        extension.prefs.split("\n").forEach((line) => {
+          if (line.startsWith("[")) {
+            print("       " + line);
+          } else {
+            print("         " + line);
+          }
+        });
+      }
+    }
+    print(`Total extensions: ${saveData.extensions.length}`);
+  }
+
+  // src/cmd-load.js
+  function cmdLoad({ cmd: cmd2, args: args2, flags: flags2 }) {
+    const [saveName] = args2;
+    if (!saveName) {
+      printerr("No save name specified");
+      imports.system.exit(1);
+    }
+    const filePath = GLib.build_filenamev([SAVE_DIR, `${saveName}.json`]);
+    if (!GLib.file_test(filePath, GLib.FileTest.EXISTS)) {
+      printerr(`Save "${saveName}" does not exist`);
+      imports.system.exit(1);
+    }
+    const file = Gio.File.new_for_path(filePath);
+    let saveData = null;
+    try {
+      const [, contents] = file.load_contents(null);
+      const decoder = new TextDecoder("utf-8");
+      saveData = JSON.parse(decoder.decode(contents));
+    } catch (e) {
+      printerr(`Failed to load save "${saveName}": ${e instanceof Error ? e.message : e}`);
+      return imports.system.exit(1);
+    }
+    if (!saveData || !saveData.extensions || !Array.isArray(saveData.extensions)) {
+      printerr(`Save file "${saveName}" is corrupted or invalid.`);
+      return imports.system.exit(1);
+    }
+    const installed = getInstalledExtensions(EXTENSIONS_DIR_USER);
+    const notInstalled = saveData.extensions.filter(({ uuid }) => !installed.includes(uuid));
+    const gnomeShellVersion = getGnomeShellVersionMajor();
+    if (!gnomeShellVersion) {
+      printerr(`Unable to determine current GNOME Shell version`);
+      return imports.system.exit(1);
+    }
+    if (saveData.gnomeShellVersion !== gnomeShellVersion) {
+      print(`WARNING: GNOME Shell version mismatch, current version ${gnomeShellVersion} does not match saved version ${saveData.gnomeShellVersion}, which may break some extensions`);
+    }
+    if (notInstalled.length > 0) {
+      for (const { uuid } of notInstalled) {
+        print(`Downloading extension ${uuid}`);
+        const zipFile = downloadExtension_sync(uuid, gnomeShellVersion, GLib.build_filenamev([SAVE_DIR, "tmp"]));
+        print(`Installing extension ${uuid}`);
+        if (!zipFile) {
+          printerr(`Failed to download extension for ${uuid}`);
+          continue;
+        }
+        gnomeExtensionsInstall(zipFile);
+        GLib.unlink(zipFile);
+      }
+    }
+    print("Disabling current extensions");
+    setEnabledExtensions([]);
+    setEnabledExtensions(saveData.extensions.map(({ uuid }) => uuid));
+    print("Updating preferences");
+    const dconfLoadScript = `sh -c ` + GLib.shell_quote(
+      saveData.extensions.filter(({ dconfPath }) => Boolean(dconfPath)).map(({ uuid, dconfPath }) => `cat ${GLib.shell_quote(filePath)} | jq -r ${GLib.shell_quote(`.extensions[] | select(.uuid == "${uuid}").prefs`)} | dconf load -f ${GLib.shell_quote(dconfPath)}`).join("\n")
+    );
+    const [ok] = GLib.spawn_command_line_sync(dconfLoadScript);
+    if (!ok) {
+      print("Failed to load dconf settings");
+    }
+    print("Enabling extensions");
+    setEnabledExtensions(saveData.extensions.map(({ uuid }) => uuid));
+    print(`Loaded extensions and their preferences from "${saveName}"`);
+  }
+  function downloadExtension_sync(uuid, shellVersion, downloadDir) {
+    var _a;
+    GLib.mkdir_with_parents(downloadDir, 493);
+    const majorShellVersion = String(shellVersion).split(".")[0];
+    const infoEndpoint = `https://extensions.gnome.org/extension-info/?uuid=${encodeURIComponent(uuid)}`;
+    const curlInfoCommand = ["curl", "-s", infoEndpoint];
+    let extensionInfoJson;
+    try {
+      const [ok, out, err, status] = GLib.spawn_sync(
+        null,
+        curlInfoCommand,
+        null,
+        GLib.SpawnFlags.SEARCH_PATH,
+        null
+      );
+      if (!ok || !GLib.spawn_check_exit_status(status)) {
+        printerr(`Failed to fetch extension info for ${uuid}`);
+        return null;
+      }
+      const decoder = new TextDecoder();
+      extensionInfoJson = decoder.decode(out);
+    } catch (e) {
+      printerr(`Error fetching extension info: ${e.message}`);
+      return null;
+    }
+    let extensionInfo;
+    try {
+      extensionInfo = JSON.parse(extensionInfoJson);
+    } catch (e) {
+      printerr(`Failed to parse extension info JSON: ${e.message}`);
+      return null;
+    }
+    const versionEntry = (_a = extensionInfo.shell_version_map) == null ? void 0 : _a[majorShellVersion];
+    if (!(versionEntry == null ? void 0 : versionEntry.version)) {
+      printerr(`No compatible version found for GNOME Shell ${shellVersion}`);
+      return null;
+    }
+    const extensionVersion = versionEntry.version;
+    const endpoint = `https://extensions.gnome.org/api/v1/extensions/${uuid}/versions/${extensionVersion}/?format=zip`;
+    const outputFile = GLib.build_filenamev([downloadDir, `${uuid}-${extensionVersion}.zip`]);
+    const curlCommand = ["curl", "-L", endpoint, "--output", outputFile];
+    try {
+      const [ok, out, err, status] = GLib.spawn_sync(
+        null,
+        curlCommand,
+        null,
+        GLib.SpawnFlags.SEARCH_PATH,
+        null
+      );
+      if (!ok || !GLib.spawn_check_exit_status(status)) {
+        printerr(`Failed to download extension zip for ${uuid}`);
+        return null;
+      }
+    } catch (e) {
+      printerr(`Error downloading extension zip: ${e.message}`);
+      return null;
+    }
+    return outputFile;
+  }
+  function gnomeExtensionsInstall(absoluteFilepath) {
+    const installCommand = `gnome-extensions install "${absoluteFilepath}"`;
+    try {
+      const [ok, out, err, status] = GLib.spawn_command_line_sync(installCommand);
+      if (!ok || !GLib.spawn_check_exit_status(status)) {
+        return null;
+      }
+      return true;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // src/main.js
+  GLib.mkdir_with_parents(SAVE_DIR, 493);
+  var argv = parseArgv(ARGV);
+  var { cmd, args, flags } = argv;
+  if (cmd == "version" || (flags.includes("v") || flags.includes("version")) && !cmd && args.length == 0 && flags.filter((v) => v !== "v" && v !== "version").length === 0) {
+    print(`extension-saver ${VERSION}`);
+  } else if (cmd == "help" || !cmd && flags.length == 0 || !cmd && (flags.includes("h") || flags.includes("help"))) {
+    printHelp();
+  } else if (cmd == "list") {
+    cmdList();
+  } else if (cmd == "info") {
+    cmdInfo(argv);
+  } else if (cmd == "save") {
+    cmdSave(argv);
+  } else if (cmd == "remove") {
+    cmdRemove(argv);
+  } else if (cmd == "load") {
+    cmdLoad(argv);
+  } else {
+    print(cmd ? `Unknown command: ${cmd}` : "Unknown flags");
+    imports.system.exit(1);
+  }
+  function printHelp() {
+    print("Usage: extension-saver <command> <args...>");
+    print("Commands:");
+    print("  list              List all saved sets");
+    print("  info <name>       Show information about the saved set <name>");
+    print("  save <name>       Save the current extensions and their settings to <name>");
+    print("  remove <name>     Remove the saved set <name>");
+    print("  load <name>       Load extensions and their settings from the saved set <name>");
+    print("  help              Show this help message");
+    print("  version           Show the version of this script");
+  }
+  function parseArgv(argv2) {
+    let cmd2 = null;
+    let args2 = [];
+    let flags2 = [];
+    for (let str of argv2) {
+      if (str.startsWith("--")) {
+        flags2.push(str.substring(2));
+      } else if (str.startsWith("-")) {
+        for (const ch of str.substring(1)) {
+          flags2.push(ch);
+        }
+      } else if (!cmd2) {
+        cmd2 = str;
+      } else {
+        args2.push(str);
+      }
+    }
+    return { cmd: cmd2, args: args2, flags: flags2 };
+  }
+})();

@@ -1,13 +1,19 @@
 # Extensions Saver
-Load/save an entire set of GNOME extensions with a single command.
+Load/save an entire set of GNOME extensions and their preferences with a single command.
 
 ## Example Usage
 ```bash
     extensions-saver save original
-    # Make some crazy changes to your extensions! (add, change preferences, etc.)
-    extension-saver save my-crazy-desktop
-    extension-saver load original # Revert back to your original desktop
+    # Make some crazy changes to your extensions! (add extensions, change extension preferences, etc.)
+    extension-saver save my-crazy-desktop # save your new desktop
+    extension-saver load original # Revert back to your original desktop!
 ```
+
+### IMPORTANT:
+The script may not always load all of the saved preferences because extension authors may choose to put preferences in unconventional places which we have not accounted for. For example, the panel position (e.g., 'top', 'bottom') for Dash To Panel is not altered and must be manually changed in extension preferences.
+
+## Installation
+Download the [extension-saver](./extension-saver) script and save it in a user bin directory like ~/.local/bin
 
 ## Commands
 
@@ -31,18 +37,3 @@ Load/save an entire set of GNOME extensions with a single command.
 
 ### `version`  
   Show version.
-
-
-## Problems
-
-- ### How to handle system extensions?
-  System extensions are annoying, because they cant be downloaded from the GNOME extensions website. However, they should be able to be sourced from somewhere, so perhaps keeping this program updated with where to get them would work for installation. If we did this, would also likely need to save the user's current distro. 
-
-  In meantime, we can just keep record of user's sys extensions, and re-enable them if they go back to that setting so we don't annoy them.
-
-- ### Some dash-to-panel settings are not saved
-  When saving dash-to-panel on the top/bottom, it does not load between saves (i.e., once save at bottom, always remains theres despite loading saves that have it in a different position). This suggests that the settings are stored somewhere else. `gsettings` is able to be used for storage for extensions as well - the data may be stored there, or somewhere else that dash-to-panel personally chose.... fuck.
-
-  #### FIXES:
-  1. If they exist, change gsettings settings as well as the dconf ones?
-  2. We... may... have to ... add rules for each popular extension like dash-to-panel :'(

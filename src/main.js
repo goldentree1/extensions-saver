@@ -17,9 +17,9 @@ const { cmd, args, flags } = argv;
 
 // run program!!
 if (cmd == "version" ||
-    ((flags.includes("v") || flags.includes("version")) && !cmd && args.length == 0)) {
+    ((flags.includes("v") || flags.includes("version")) && !cmd && args.length == 0 && flags.filter(v => v !== "v" && v !== "version").length === 0)) {
     print(`extension-saver ${VERSION}`);
-} else if (cmd == "help" || (!cmd && (flags.includes("h") || flags.includes("help")))) {
+} else if (cmd == "help" || (!cmd && flags.length == 0) || (!cmd && (flags.includes("h") || flags.includes("help")))) {
     printHelp();
 } else if (cmd == "list") {
     cmdList();
@@ -32,7 +32,7 @@ if (cmd == "version" ||
 } else if (cmd == "load") {
     cmdLoad(argv);
 } else {
-    print(`Unknown command: ${cmd}`);
+    print(cmd ? `Unknown command: ${cmd}` : 'Unknown flags');
     imports.system.exit(1);
 }
 

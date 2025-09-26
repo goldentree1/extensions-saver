@@ -39,6 +39,10 @@ export function setEnabledExtensions(uuids) {
 
 /** @param {string} dir extensions dir (could be sys or user) */
 export function getInstalledExtensions(dir) {
+    if (!GLib.file_test(dir, GLib.FileTest.IS_DIR)) {
+        return [];
+    }
+
     const file = Gio.File.new_for_path(dir);
     const enumerator = file.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
     /** @type {string[]} */
